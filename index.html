@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Borne vers Maps</title>
+<meta name="description" content="Convertit les coordonnées UTM d'une borne de parcelle en position Google Maps.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Borne">
+<meta name="theme-color" content="#1F3A2E">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#EEF1EC; --ink:#17231D; --muted:#5C6B62; --line:#C9D1CB;
+  --field:#FFFFFF; --pine:#1F3A2E; --flag:#E4561B; --flag-ink:#FFF7F2;
+  --ok:#2F6B4A; --warn-bg:#FFF1E6; --warn-ink:#8A3A10;
+  --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --paper:#131A16; --ink:#EAF0EC; --muted:#93A399; --line:#2E3A33;
+    --field:#1B2520; --pine:#0F1F18; --flag:#FF6A2B; --flag-ink:#1A0D07;
+    --ok:#7BC49A; --warn-bg:#3A2213; --warn-ink:#FFC9A8;
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#131A16; --ink:#EAF0EC; --muted:#93A399; --line:#2E3A33;
+  --field:#1B2520; --pine:#0F1F18; --flag:#FF6A2B; --flag-ink:#1A0D07;
+  --ok:#7BC49A; --warn-bg:#3A2213; --warn-ink:#FFC9A8;
+}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+*{box-sizing:inherit}
+body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:17px;line-height:1.45;-webkit-font-smoothing:antialiased;min-height:100%}
+main{max-width:520px;margin:0 auto;padding:20px 18px 40px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:22px}
+h1{font-size:22px;font-weight:600;margin:0;letter-spacing:-.01em}
+.zone{font:500 15px var(--mono);color:var(--muted);background:none;border:1px solid var(--line);border-radius:6px;padding:4px 8px;-webkit-appearance:none;appearance:none}
+.coord{display:block;margin-bottom:14px}
+.coord span{display:block;font-size:14px;color:var(--muted);margin-bottom:6px}
+.coord input{width:100%;font:500 30px/1.2 var(--mono);font-variant-numeric:tabular-nums;color:var(--ink);background:var(--field);border:1px solid var(--line);border-left:5px solid var(--pine);border-radius:8px;padding:12px 14px;outline:none}
+.coord input:focus{border-color:var(--flag);box-shadow:0 0 0 3px color-mix(in srgb,var(--flag) 25%,transparent)}
+.coord input::placeholder{color:var(--line)}
+.coord.y input{border-left-color:var(--flag)}
+.hint{font-size:14px;color:var(--muted);margin:2px 0 18px}
+button{font-family:var(--sans);cursor:pointer}
+.go{width:100%;font-size:18px;font-weight:600;padding:15px;border:0;border-radius:10px;background:var(--pine);color:#fff}
+.go:active{transform:translateY(1px)}
+.notice{display:none;margin:16px 0 0;padding:12px 14px;border-radius:8px;font-size:15px;background:var(--warn-bg);color:var(--warn-ink)}
+.notice[data-show]{display:block}
+.notice button{margin-top:8px;background:none;border:1px solid currentColor;color:inherit;border-radius:6px;padding:6px 10px;font-size:14px}
+#result{display:none;margin-top:28px;padding-top:22px;border-top:1px dashed var(--line)}
+#result[data-show]{display:block}
+.pos{font:500 22px/1.35 var(--mono);font-variant-numeric:tabular-nums;word-break:break-all;margin:0}
+.dms{font-size:15px;color:var(--muted);margin:4px 0 18px}
+.open{display:flex;gap:10px;margin-bottom:10px}
+.open a{flex:1;text-align:center;text-decoration:none;font-weight:600;font-size:16px;padding:14px 10px;border-radius:10px;border:1px solid var(--line);color:var(--ink);background:var(--field)}
+.open a.gm{background:var(--flag);color:var(--flag-ink);border-color:var(--flag)}
+.row{display:flex;gap:10px}
+.row button{flex:1;font-size:15px;padding:11px;border-radius:8px;border:1px solid var(--line);background:none;color:var(--ink)}
+.row button.done{color:var(--ok);border-color:var(--ok)}
+h2{font-size:15px;font-weight:500;color:var(--muted);margin:34px 0 8px}
+#history{list-style:none;margin:0;padding:0}
+#history li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);font:500 15px var(--mono);font-variant-numeric:tabular-nums}
+#history li button{background:none;border:0;color:var(--flag);font:600 14px var(--sans);padding:6px 0}
+#history li .k{color:var(--muted)}
+#empty{font-size:15px;color:var(--muted)}
+#clear{display:none;background:none;border:0;color:var(--muted);font-size:14px;padding:10px 0;text-decoration:underline}
+details{margin-top:34px;font-size:15px;color:var(--muted)}
+summary{cursor:pointer;color:var(--ink)}
+details p{margin:8px 0}
+:focus-visible{outline:2px solid var(--flag);outline-offset:2px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Borne vers Maps</h1>
+    <select id="zone" class="zone" aria-label="Zone UTM">
+      <option value="30">UTM 30N</option>
+      <option value="31" selected>UTM 31N</option>
+      <option value="32">UTM 32N</option>
+    </select>
+  </header>
+
+  <label class="coord x"><span>X (Est, en mètres)</span>
+    <input id="x" inputmode="decimal" autocomplete="off" placeholder="437 349,50" enterkeyhint="next"></label>
+  <label class="coord y"><span>Y (Nord, en mètres)</span>
+    <input id="y" inputmode="decimal" autocomplete="off" placeholder="703 887,20" enterkeyhint="go"></label>
+  <p class="hint">Coordonnées du levé topographique, datum WGS 84. Virgule ou point acceptés.</p>
+
+  <button class="go" id="go">Localiser la borne</button>
+
+  <div class="notice" id="notice" role="status"></div>
+
+  <section id="result" aria-live="polite">
+    <p class="pos" id="pos"></p>
+    <p class="dms" id="dms"></p>
+    <div class="open">
+      <a id="gm" class="gm" href="#" target="_blank" rel="noopener">Ouvrir dans Google Maps</a>
+      <a id="am" href="#" target="_blank" rel="noopener">Plans</a>
+    </div>
+    <div class="row">
+      <a id="dir" href="#" target="_blank" rel="noopener" style="display:none"></a>
+      <button id="copy">Copier le lien</button>
+      <button id="share">Partager</button>
+    </div>
+  </section>
+
+  <h2>Dernières bornes</h2>
+  <ul id="history"></ul>
+  <p id="empty">Aucune conversion pour le moment.</p>
+  <button id="clear">Effacer l'historique</button>
+
+  <details>
+    <summary>Comment ça marche</summary>
+    <p>Les X, Y d'un levé au Bénin sont des coordonnées projetées UTM (zone 31N par défaut, datum WGS 84). L'application applique la projection inverse de Mercator transverse pour retrouver la latitude et la longitude, puis compose un lien Google Maps sur ce point.</p>
+    <p>Précision du calcul: millimétrique par rapport à la formule de référence. La précision réelle sur le terrain dépend du levé et de la concordance du datum: si le plan est sur un ancien système géodésique, confirmez-le avec le géomètre avant d'utiliser le résultat.</p>
+  </details>
+</main>
+
+<script>
+(function(){
+  // ---- Projection inverse UTM -> WGS 84 (séries de Snyder / USGS PP 1395) ----
+  const A = 6378137, F = 1/298.257223563, K0 = 0.9996, FE = 500000;
+  const E2 = F*(2-F), EP2 = E2/(1-E2);
+  const E1 = (1-Math.sqrt(1-E2))/(1+Math.sqrt(1-E2));
+  const M_COEF = A*(1 - E2/4 - 3*E2*E2/64 - 5*E2*E2*E2/256);
+
+  function utmToLatLon(x, y, zone, south){
+    const M = (y - (south ? 1e7 : 0))/K0;
+    const mu = M/M_COEF;
+    const phi1 = mu
+      + (3*E1/2 - 27*Math.pow(E1,3)/32)*Math.sin(2*mu)
+      + (21*E1*E1/16 - 55*Math.pow(E1,4)/32)*Math.sin(4*mu)
+      + (151*Math.pow(E1,3)/96)*Math.sin(6*mu)
+      + (1097*Math.pow(E1,4)/512)*Math.sin(8*mu);
+    const s = Math.sin(phi1), c = Math.cos(phi1), t = Math.tan(phi1);
+    const C1 = EP2*c*c, T1 = t*t;
+    const N1 = A/Math.sqrt(1-E2*s*s);
+    const R1 = A*(1-E2)/Math.pow(1-E2*s*s,1.5);
+    const D = (x-FE)/(N1*K0);
+    const lat = phi1 - (N1*t/R1)*(
+      D*D/2
+      - (5 + 3*T1 + 10*C1 - 4*C1*C1 - 9*EP2)*Math.pow(D,4)/24
+      + (61 + 90*T1 + 298*C1 + 45*T1*T1 - 252*EP2 - 3*C1*C1)*Math.pow(D,6)/720);
+    const lon0 = ((zone-1)*6 - 180 + 3)*Math.PI/180;
+    const lon = lon0 + (
+      D - (1 + 2*T1 + C1)*Math.pow(D,3)/6
+      + (5 - 2*C1 + 28*T1 - 3*C1*C1 + 8*EP2 + 24*T1*T1)*Math.pow(D,5)/120)/c;
+    return {lat: lat*180/Math.PI, lon: lon*180/Math.PI};
+  }
+
+  // ---- Utilitaires ----
+  const $ = id => document.getElementById(id);
+  const parseNum = v => {
+    const s = String(v).replace(/\s|\u202f|\u00a0/g,'').replace(',','.');
+    return s === '' ? NaN : Number(s);
+  };
+  const toDMS = (deg, pos, neg) => {
+    const h = deg < 0 ? neg : pos; deg = Math.abs(deg);
+    const d = Math.floor(deg), mF = (deg-d)*60, m = Math.floor(mF), s = ((mF-m)*60).toFixed(2);
+    return `${d}° ${String(m).padStart(2,'0')}' ${s.padStart(5,'0')}" ${h}`;
+  };
+  const fmt = n => n.toLocaleString('fr-FR',{minimumFractionDigits:2,maximumFractionDigits:2});
+  const store = {
+    get(){ try{ return JSON.parse(localStorage.getItem('bornes')||'[]'); }catch(e){ return []; } },
+    set(v){ try{ localStorage.setItem('bornes', JSON.stringify(v)); }catch(e){} }
+  };
+  let current = null;
+
+  function notify(msg, action, onAction){
+    const n = $('notice');
+    n.innerHTML = msg;
+    if(action){ const b = document.createElement('button'); b.textContent = action; b.onclick = onAction; n.appendChild(b); }
+    n.setAttribute('data-show','');
+  }
+  const clearNotice = () => { $('notice').removeAttribute('data-show'); $('notice').innerHTML=''; };
+
+  function locate(x, y, zone, fromHistory){
+    clearNotice();
+    if(!isFinite(x) || !isFinite(y)){ notify('Renseignez X et Y en mètres, par exemple 437349,50 et 703887,20.'); return; }
+    // Au Bénin (hémisphère nord, zone 31): X sur 6 chiffres autour de 500 000, Y sur 7 chiffres. Si l'inverse est saisi, proposer l'échange.
+    if(!fromHistory && x > 1e6 && y < 1e6){
+      notify('X et Y semblent inversés (X devrait être proche de 500 000, Y supérieur à 600 000).','Échanger X et Y',()=>{ $('x').value=fmt(y); $('y').value=fmt(x); locate(y,x,zone); });
+      return;
+    }
+    if(x < 100000 || x > 900000){ notify('X hors du domaine UTM valide (100 000 à 900 000 m). Vérifiez la saisie ou la zone.'); return; }
+    const p = utmToLatLon(x, y, zone, false);
+    if(!isFinite(p.lat) || !isFinite(p.lon) || Math.abs(p.lat) > 84){ notify('Coordonnées hors du domaine de la projection.'); return; }
+    // Emprise approximative du Bénin, à titre de garde-fou seulement.
+    if(p.lat < 6.1 || p.lat > 12.5 || p.lon < 0.7 || p.lon > 4.0){
+      notify(`Le point tombe hors du Bénin (${p.lat.toFixed(4)}, ${p.lon.toFixed(4)}). Vérifiez la zone UTM et les valeurs.`);
+    }
+    render(x, y, zone, p);
+    if(!fromHistory){
+      const h = store.get().filter(e => !(e.x===x && e.y===y && e.zone===zone));
+      h.unshift({x,y,zone,lat:p.lat,lon:p.lon,t:Date.now()});
+      store.set(h.slice(0,12)); renderHistory();
+    }
+  }
+
+  function render(x, y, zone, p){
+    const lat = p.lat.toFixed(7), lon = p.lon.toFixed(7);
+    const q = `${lat},${lon}`;
+    current = {x,y,zone,lat,lon,q,
+      gm:`https://www.google.com/maps/search/?api=1&query=${q}`,
+      am:`https://maps.apple.com/?ll=${q}&q=Borne`};
+    $('pos').textContent = q;
+    $('dms').textContent = `${toDMS(p.lat,'N','S')}   ${toDMS(p.lon,'E','O')}   (zone ${zone}N)`;
+    $('gm').href = current.gm; $('am').href = current.am;
+    $('copy').textContent = 'Copier le lien'; $('copy').classList.remove('done');
+    $('result').setAttribute('data-show','');
+    $('result').scrollIntoView({behavior:'smooth',block:'start'});
+  }
+
+  function renderHistory(){
+    const h = store.get(), ul = $('history');
+    ul.innerHTML = '';
+    $('empty').style.display = h.length ? 'none' : 'block';
+    $('clear').style.display = h.length ? 'inline' : 'none';
+    h.forEach(e => {
+      const li = document.createElement('li');
+      li.innerHTML = `<span><span class="k">X</span> ${fmt(e.x)}<br><span class="k">Y</span> ${fmt(e.y)}</span>`;
+      const b = document.createElement('button'); b.textContent = 'Rouvrir';
+      b.onclick = () => { $('x').value = fmt(e.x); $('y').value = fmt(e.y); $('zone').value = e.zone; locate(e.x,e.y,e.zone,true); };
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+
+  // ---- Événements ----
+  const run = () => locate(parseNum($('x').value), parseNum($('y').value), Number($('zone').value));
+  $('go').onclick = run;
+  $('x').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); $('y').focus(); } });
+  $('y').addEventListener('keydown', e => { if(e.key==='Enter'){ e.preventDefault(); $('y').blur(); run(); } });
+  $('copy').onclick = async () => {
+    if(!current) return;
+    try{ await navigator.clipboard.writeText(current.gm); $('copy').textContent='Lien copié'; $('copy').classList.add('done'); }
+    catch(e){ notify(`Copie impossible ici. Lien: ${current.gm}`); }
+  };
+  $('share').onclick = async () => {
+    if(!current) return;
+    const text = `Borne X ${fmt(current.x)} / Y ${fmt(current.y)} (UTM ${current.zone}N)`;
+    if(navigator.share){ try{ await navigator.share({title:'Borne', text, url:current.gm}); }catch(e){} }
+    else $('copy').click();
+  };
+  $('clear').onclick = () => { store.set([]); renderHistory(); };
+  renderHistory();
+})();
+</script>
+<script>if("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");</script>
+</body>
+</html>

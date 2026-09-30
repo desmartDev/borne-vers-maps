@@ -1,0 +1,10 @@
+{
+  "name": "Borne vers Maps",
+  "short_name": "Borne",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#EEF1EC",
+  "theme_color": "#1F3A2E",
+  "icons": [{ "src": "icon-180.png", "sizes": "180x180", "type": "image/png" }]
+}
